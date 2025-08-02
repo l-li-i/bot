@@ -1,0 +1,8 @@
+Django>=4.0
+aiogram>=3.0
+python-dotenv
+Pillow
+django-environ # Для удобной работы с .env в джанго
+python-docx # Для генерации документов ворд (или reportlab для PDF)
+psycopg2-binary # когда  будет использоваться PostgreSQL
+apscheduler
