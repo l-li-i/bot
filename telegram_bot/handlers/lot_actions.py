@@ -12,7 +12,6 @@ from support_app.models import Complaint
 
 router = Router()
 
-# Состояния для FSM (Finite State Machine)
 class BidState(StatesGroup):
     waiting_for_bid_amount = State()
 
@@ -21,7 +20,11 @@ class ComplaintState(StatesGroup):
 
 @router.callback_query(F.data == "participate")
 async def show_active_lots_handler(callback: CallbackQuery):
-    active_lots = await Lot.objects.filter(status='active', end_time__gt=timezone.now()).select_related('seller').prefetch_related('images').order_by('end_time')
+    #  используем .aall() для асинхронного получения QuerySet
+    active_lots = await Lot.objects.filter(
+        status='active',
+        end_time__gt=timezone.now()
+    ).select_related('seller').prefetch_related('images').order_by('end_time').aall()
 
     if not active_lots:
         await callback.message.edit_text("Сейчас нет активных лотов. Загляните позже!")
@@ -29,7 +32,8 @@ async def show_active_lots_handler(callback: CallbackQuery):
         return
 
     for lot in active_lots:
-        images = await lot.images.all()
+        # используем .aall() для асинхронного получения QuerySet
+        images = await lot.images.aall()
         media_group = []
         caption_text = (
             f"✨ <b>АКТИВНЫЙ ЛОТ</b> ✨\n\n"
@@ -40,7 +44,6 @@ async def show_active_lots_handler(callback: CallbackQuery):
         )
         keyboard = create_lot_keyboard(lot.id)
 
-        # Отправляем изображения лота
         if images:
             for i, img in enumerate(images):
                 image_path = img.image.path
@@ -55,16 +58,16 @@ async def show_active_lots_handler(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("participate_"))
 async def participate_callback_handler(callback: CallbackQuery, state: FSMContext) -> None:
-    """
-    Обрабатывает нажатие кнопки "Участвовать".
-    Перенаправляет пользователя в личное сообщение с ботом для ставки.
-    """
     lot_id = int(callback.data.split("_")[1])
     user_id = callback.from_user.id
 
     try:
         lot = await Lot.objects.aget(id=lot_id, status='active')
         user_profile = await UserProfile.objects.aget(telegram_id=user_id)
+        #  проверяем is_suspended вместо несуществующего is_banned
+        if user_profile.is_suspended:
+            await callback.answer("Вы заблокированы и не можете участвовать в торгах.", show_alert=True)
+            return
     except (Lot.DoesNotExist, UserProfile.DoesNotExist):
         await callback.answer("Лот не найден или вы не зарегистрированы.", show_alert=True)
         return
@@ -81,9 +84,6 @@ async def participate_callback_handler(callback: CallbackQuery, state: FSMContex
 
 @router.callback_query(F.data.startswith("bid_"))
 async def bid_preset_callback_handler(callback: CallbackQuery, state: FSMContext) -> None:
-    """
-    Обрабатывает нажатие на предустановленные суммы ставок.
-    """
     parts = callback.data.split("_")
     lot_id = int(parts[1])
     user_id = callback.from_user.id
@@ -91,6 +91,10 @@ async def bid_preset_callback_handler(callback: CallbackQuery, state: FSMContext
     try:
         lot = await Lot.objects.aget(id=lot_id, status='active')
         user_profile = await UserProfile.objects.aget(telegram_id=user_id)
+        #  проверяем is_suspended вместо несуществующего is_banned
+        if user_profile.is_suspended:
+            await callback.answer("Вы заблокированы и не можете делать ставки.", show_alert=True)
+            return
     except (Lot.DoesNotExist, UserProfile.DoesNotExist):
         await callback.answer("Лот не найден или вы не зарегистрированы.", show_alert=True)
         return
@@ -131,7 +135,7 @@ async def bid_preset_callback_handler(callback: CallbackQuery, state: FSMContext
             await callback.answer("Ставка успешно сделана!")
 
             await callback.bot.send_message(
-                chat_id="-1001234567890", # Замените на ID вашего канала аукциона
+                chat_id="-1001234567890",
                 text=f"🔥 Новая ставка на лот <b>{lot.title}</b>!\n"
                      f"Текущая цена: <b>{lot.current_price} ₽</b>\n"
                      f"Сделана пользователем: {user_profile.username or user_profile.telegram_id}"
@@ -143,9 +147,6 @@ async def bid_preset_callback_handler(callback: CallbackQuery, state: FSMContext
 
 @router.message(BidState.waiting_for_bid_amount, F.text.regexp(r'^\d+(\.\d{1,2})?$'))
 async def process_custom_bid(message: Message, state: FSMContext) -> None:
-    """
-    Обрабатывает пользовательский ввод суммы ставки.
-    """
     data = await state.get_data()
     lot_id = data['lot_id']
     user_id = message.from_user.id
@@ -154,6 +155,11 @@ async def process_custom_bid(message: Message, state: FSMContext) -> None:
     try:
         lot = await Lot.objects.aget(id=lot_id, status='active')
         user_profile = await UserProfile.objects.aget(telegram_id=user_id)
+        # проверяем is_suspended вместо несуществующего is_banned
+        if user_profile.is_suspended:
+            await message.answer("Вы заблокированы и не можете делать ставки.")
+            await state.clear()
+            return
     except (Lot.DoesNotExist, UserProfile.DoesNotExist):
         await message.answer("Лот не найден или вы не зарегистрированы.")
         await state.clear()
@@ -191,7 +197,7 @@ async def process_custom_bid(message: Message, state: FSMContext) -> None:
             await state.clear()
 
             await message.bot.send_message(
-                chat_id="-1001234567890", # Замените на ID вашего канала аукциона
+                chat_id="-1001234567890",
                 text=f"🔥 Новая ставка на лот <b>{lot.title}</b>!\n"
                      f"Текущая цена: <b>{lot.current_price} ₽</b>\n"
                      f"Сделана пользователем: {user_profile.username or user_profile.telegram_id}"
@@ -204,29 +210,21 @@ async def process_custom_bid(message: Message, state: FSMContext) -> None:
 
 @router.message(BidState.waiting_for_bid_amount)
 async def process_custom_bid_invalid(message: Message) -> None:
-    """
-    Обрабатывает неверный ввод суммы ставки.
-    """
     await message.answer("Пожалуйста, введите корректную числовую сумму ставки (например, 1500.00).")
 
 @router.callback_query(F.data.startswith("cancel_bid_"))
 async def cancel_bid_handler(callback: CallbackQuery, state: FSMContext) -> None:
-    """
-    Отменяет процесс ставки.
-    """
     await state.clear()
     await callback.message.answer("Процесс ставки отменен.")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("lot_details_"))
 async def lot_details_handler(callback: CallbackQuery) -> None:
-    """
-    Отправляет подробное описание лота и приложенные файлы.
-    """
     lot_id = int(callback.data.split("_")[2])
     try:
         lot = await Lot.objects.aget(id=lot_id)
-        images = await lot.images.all()
+        #  используем .aall() для асинхронного получения QuerySet
+        images = await lot.images.aall()
     except Lot.DoesNotExist:
         await callback.answer("Лот не найден.", show_alert=True)
         return
@@ -256,9 +254,6 @@ async def lot_details_handler(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data.startswith("complain_lot_"))
 async def complain_lot_handler(callback: CallbackQuery, state: FSMContext) -> None:
-    """
-    Обрабатывает жалобу на лот.
-    """
     lot_id = int(callback.data.split("_")[2])
     user_id = callback.from_user.id
 
@@ -276,9 +271,6 @@ async def complain_lot_handler(callback: CallbackQuery, state: FSMContext) -> No
 
 @router.message(ComplaintState.waiting_for_complaint_text)
 async def process_complaint_text(message: Message, state: FSMContext) -> None:
-    """
-    Сохраняет жалобу в БД и отправляет в систему поддержки.
-    """
     data = await state.get_data()
     lot_id = data['lot_id']
     reporter_id = data['reporter_id']
@@ -296,7 +288,7 @@ async def process_complaint_text(message: Message, state: FSMContext) -> None:
             message=complaint_text,
         )
 
-        support_group_id = -1001234567891 # Замените на ID чата вашей группы поддержки
+        support_group_id = -1001234567891
         await message.bot.send_message(
             chat_id=support_group_id,
             text=f"🚨 <b>НОВАЯ ЖАЛОБА!</b> 🚨\n\n"

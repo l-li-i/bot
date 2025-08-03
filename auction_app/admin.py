@@ -1,9 +1,9 @@
-from django.contrib import admin
+﻿from django.contrib import admin
 from .models import Lot, LotImage, Bid, Transaction
 
 class LotImageInline(admin.TabularInline):
     model = LotImage
-    extra = 1 # количество пустых форм для добавления изображений
+    extra = 1 #      
 
 @admin.register(Lot)
 class LotAdmin(admin.ModelAdmin):
@@ -15,15 +15,15 @@ class LotAdmin(admin.ModelAdmin):
 
     def mark_as_active(self, request, queryset):
         queryset.update(status='active')
-    mark_as_active.short_description = "Отметить выбранные лоты как 'Активные'"
+    mark_as_active.short_description = "    ''"
 
     def mark_as_scheduled(self, request, queryset):
         queryset.update(status='scheduled')
-    mark_as_scheduled.short_description = "Отметить выбранные лоты как 'Запланированные'"
+    mark_as_scheduled.short_description = "    ''"
 
     def mark_as_pending(self, request, queryset):
         queryset.update(status='pending')
-    mark_as_pending.short_description = "Отметить выбранные лоты как 'Ожидающие одобрения'"
+    mark_as_pending.short_description = "    ' '"
 
 
 @admin.register(Bid)

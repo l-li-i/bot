@@ -30,9 +30,38 @@ async def create_bid_keyboard(lot_id: int):
 
 def profile_keyboard():
     buttons = [
-        [InlineKeyboardButton(text="Мой баланс", callback_data="my_balance")],
         [InlineKeyboardButton(text="Мои ставки", callback_data="my_bids")],
         [InlineKeyboardButton(text="Настройки", callback_data="settings")],
         [InlineKeyboardButton(text="Назад", callback_data="main_menu")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def user_settings_keyboard():
+    buttons = [
+        [InlineKeyboardButton(text="Автоставки (выкл)", callback_data="toggle_autobid")],
+        [InlineKeyboardButton(text="Назад", callback_data="profile")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def admin_panel_keyboard():
+    buttons = [
+        [InlineKeyboardButton(text="Создать лот", callback_data="create_lot")],
+        [InlineKeyboardButton(text="Удалить лот", callback_data="delete_lot")],
+        [InlineKeyboardButton(text="Просмотр финансов", callback_data="view_finances")],
+        [InlineKeyboardButton(text="Выдать страйк", callback_data="issue_strike")],
+        [InlineKeyboardButton(text="Назад в главное меню", callback_data="main_menu")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def back_keyboard():
+    buttons = [
+        [InlineKeyboardButton(text="Назад", callback_data="back_to_admin_menu")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def confirm_lot_keyboard():
+    buttons = [
+        [InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm_create_lot")],
+        [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_create_lot")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)

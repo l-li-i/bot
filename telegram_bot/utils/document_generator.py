@@ -4,9 +4,7 @@ from io import BytesIO
 from datetime import datetime
 
 def generate_transfer_document(lot_title: str, seller_name: str, buyer_name: str, final_price: float, document_type: str) -> BytesIO:
-    """
-    Генерирует документ подтверждения передачи прав на лот в формате .docx.
-    """
+
     document = Document()
     document.add_heading('Документ подтверждения передачи прав на лот', level=1)
 
