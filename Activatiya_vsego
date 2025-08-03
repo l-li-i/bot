@@ -1,0 +1,8 @@
+#для запуска бд http://127.0.0.1:8000/admin/
+#Username - 5248820634 
+#паролес - RU=!hU%_od873 
+#терминал - python manage.py runserver
+
+#для ботс 
+#терминал- python -m telegram_bot.main 
+#сам ботс - t.me/Auctions_jewels_bot
